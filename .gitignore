@@ -20,8 +20,6 @@
 *.zip
 *.tar.gz
 *.rar
-*.iml
 *.txt
 /input.txt
 /output.txt
-*.xml
