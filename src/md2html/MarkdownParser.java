@@ -185,6 +185,7 @@ public class MarkdownParser {
 
     private void createDoubleTag(StringBuilder result, char ch, int tagLength) {
         String tag = ch + "" + ch;
+        System.out.println("flex happened");
         appendTag(tag, testTagOccurrences(ch) ? "opening" : "closing", result);
         decreaseTagOccurrences(ch);
     }
