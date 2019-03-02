@@ -18,7 +18,7 @@ public class MarkdownParser {
             "`", "code",
             "++", "u"
     );
-    private HashMap<Character, Integer> tags = new HashMap<>();
+    private HashMap<Character, Integer> tagOccurrences = new HashMap<>();
     private BufferedReader reader;
     private List<String> paragraph;
 
@@ -26,30 +26,28 @@ public class MarkdownParser {
         this.reader = reader;
     }
 
-    private void setTagMap() {
-        tags.put('*', 0);
-        tags.put('_', 0);
-        tags.put('-', 0);
-        tags.put('+', 0);
-        tags.put('`', 0);
+    private void setTagOccurrences() {
+        tagOccurrences.put('*', 0);
+        tagOccurrences.put('_', 0);
+        tagOccurrences.put('-', 0);
+        tagOccurrences.put('+', 0);
+        tagOccurrences.put('`', 0);
     }
 
     public String parse() throws IOException {
         paragraph = new ArrayList<>();
-        setTagMap();
         String line;
+        setTagOccurrences();
         StringBuilder result = new StringBuilder();
         while ((line = reader.readLine()) != null) {
             if (!line.isEmpty()) {
                 paragraph.add(line);
             } else if (!paragraph.isEmpty()) {
                 result.append(parseParagraph()).append('\n');
-                setTagMap();
                 paragraph.clear();
             }
         }
-        result.append(parseParagraph());
-        return result.toString();
+        return result.append(parseParagraph()).toString();
     }
 
     private int getHeaderLevel(String line) {
@@ -69,11 +67,11 @@ public class MarkdownParser {
     }
 
     private void increaseTagOccurrences(char tag) {
-        tags.put(tag, tags.get(tag) + 1);
+        tagOccurrences.put(tag, tagOccurrences.get(tag) + 1);
     }
 
     private void decreaseTagOccurrences(char tag) {
-        tags.put(tag, tags.get(tag) - 1);
+        tagOccurrences.put(tag, tagOccurrences.get(tag) - 1);
     }
 
     private boolean testNextChar(String line, int charIndex) {
@@ -81,11 +79,11 @@ public class MarkdownParser {
     }
 
     private boolean testTagOccurrences(char tag) {
-        return tags.get(tag) % 2 == 0;
+        return tagOccurrences.get(tag) % 2 == 0;
     }
 
     private boolean tagWasInParagraph(char tag) {
-        return tags.get(tag) > 0;
+        return tagOccurrences.get(tag) > 0;
     }
 
     private void appendTagSymbols(String tag, String clarification, StringBuilder result) {
@@ -99,8 +97,8 @@ public class MarkdownParser {
         }
     }
 
-    private void createTag(StringBuilder result, char ch, int tagLength) {
-        String tag = (tagLength == 2) ? ch + "" + ch : String.valueOf(ch);
+    private void createTag(StringBuilder result, String tag) {
+        char ch = tag.charAt(0);
         appendTagSymbols(tag, testTagOccurrences(ch) ? "opening" : "closing", result);
         decreaseTagOccurrences(ch);
     }
@@ -109,18 +107,11 @@ public class MarkdownParser {
         for (String line : paragraph) {
             for (int lineIndex = 0; lineIndex < line.length(); lineIndex++) {
                 char ch = line.charAt(lineIndex);
-                if (tags.containsKey(ch)) {
-                    if (ch == '*' || ch == '_') {
-                        if (testNextChar(line, lineIndex)) {
-                            lineIndex++;
-                            increaseTagOccurrences(ch);
-                        } else {
-                            increaseTagOccurrences(ch);
-                        }
-                    } else if (ch == '-' || ch == '+') {
+                if (tagOccurrences.containsKey(ch)) {
+                    if (testNextChar(line, lineIndex) && MD_TO_HTML_TAGS.containsKey(ch + "" + ch)) {
                         lineIndex++;
                         increaseTagOccurrences(ch);
-                    } else if (ch == '`') {
+                    } else if (MD_TO_HTML_TAGS.containsKey(String.valueOf(ch))) {
                         increaseTagOccurrences(ch);
                     }
                 } else if (ch == '\\') {
@@ -128,9 +119,9 @@ public class MarkdownParser {
                 }
             }
         }
-        for (Map.Entry<Character, Integer> entry : tags.entrySet()) {
+        for (Map.Entry<Character, Integer> entry : tagOccurrences.entrySet()) {
             Character tag = entry.getKey();
-            tags.put(tag, tags.get(tag) - tags.get(tag) % 2);
+            tagOccurrences.put(tag, tagOccurrences.get(tag) - tagOccurrences.get(tag) % 2);
         }
     }
 
@@ -140,21 +131,18 @@ public class MarkdownParser {
         int headerLevel = getHeaderLevel(paragraph.get(0));
         if (headerLevel > 0)
             paragraph.set(0, new StringBuilder(paragraph.get(0)).delete(0, headerLevel + 1).toString());
+
         countTagOccurrences();
 
         for (String line : paragraph) {
             for (int lineIndex = 0; lineIndex < line.length(); lineIndex++) {
                 char ch = line.charAt(lineIndex);
-                if (tags.containsKey(ch) && tagWasInParagraph(ch)) {
-                    if (testNextChar(line, lineIndex)) {
-                        if (MD_TO_HTML_TAGS.containsKey(ch + "" + ch)) {
-                            createTag(result, ch, 2);
-                            lineIndex++;
-                        } else {
-                            createTag(result, ch, 1);
-                        }
+                if (tagOccurrences.containsKey(ch) && tagWasInParagraph(ch)) {
+                    if (testNextChar(line, lineIndex) && MD_TO_HTML_TAGS.containsKey(ch + "" + ch)) {
+                        createTag(result, ch + "" + ch);
+                        lineIndex++;
                     } else {
-                        createTag(result, ch, 1);
+                        createTag(result, String.valueOf(ch));
                     }
                 } else if (ch == '\\') {
                     lineIndex++;
@@ -169,7 +157,6 @@ public class MarkdownParser {
             }
             result.append('\n');
         }
-        result = wrapParagraph(headerLevel, result.deleteCharAt(result.length() - 1));
-        return result;
+        return wrapParagraph(headerLevel, result.deleteCharAt(result.length() - 1));
     }
 }
