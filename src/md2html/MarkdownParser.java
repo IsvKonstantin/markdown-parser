@@ -32,7 +32,6 @@ public class MarkdownParser {
         tags.put('-', 0);
         tags.put('+', 0);
         tags.put('`', 0);
-        tags.put('\\', 0);
     }
 
     public String parse() throws IOException {
@@ -77,12 +76,10 @@ public class MarkdownParser {
         tags.put(tag, tags.get(tag) - 1);
     }
 
-    //Returns true if there is a sequence of 2 identical characters in line at given index
     private boolean testNextChar(String line, int charIndex) {
         return charIndex + 1 < line.length() && line.charAt(charIndex + 1) == line.charAt(charIndex);
     }
 
-    //Returns true if tag count is even, false if odd
     private boolean testTagOccurrences(char tag) {
         return tags.get(tag) % 2 == 0;
     }
@@ -91,7 +88,7 @@ public class MarkdownParser {
         return tags.get(tag) > 0;
     }
 
-    private void appendTag(String tag, String clarification, StringBuilder result) {
+    private void appendTagSymbols(String tag, String clarification, StringBuilder result) {
         switch (clarification) {
             case "opening":
                 result.append("<").append(MD_TO_HTML_TAGS.get(tag)).append(">");
@@ -102,26 +99,32 @@ public class MarkdownParser {
         }
     }
 
-    //Count number of tag's occurrences in given text paragraph
-    private void countTags() {
+    private void createTag(StringBuilder result, char ch, int tagLength) {
+        String tag = (tagLength == 2) ? ch + "" + ch : String.valueOf(ch);
+        appendTagSymbols(tag, testTagOccurrences(ch) ? "opening" : "closing", result);
+        decreaseTagOccurrences(ch);
+    }
+
+    private void countTagOccurrences() {
         for (String line : paragraph) {
-            for (int i = 0; i < line.length(); i++) {
-                char ch = line.charAt(i);
+            for (int lineIndex = 0; lineIndex < line.length(); lineIndex++) {
+                char ch = line.charAt(lineIndex);
                 if (tags.containsKey(ch)) {
                     if (ch == '*' || ch == '_') {
-                        if (testNextChar(line, i)) {
-                            i++;
+                        if (testNextChar(line, lineIndex)) {
+                            lineIndex++;
                             increaseTagOccurrences(ch);
                         } else {
                             increaseTagOccurrences(ch);
                         }
                     } else if (ch == '-' || ch == '+') {
+                        lineIndex++;
                         increaseTagOccurrences(ch);
                     } else if (ch == '`') {
                         increaseTagOccurrences(ch);
-                    } else if (ch == '\\') {
-                        i++;
                     }
+                } else if (ch == '\\') {
+                    lineIndex++;
                 }
             }
         }
@@ -132,36 +135,32 @@ public class MarkdownParser {
     }
 
     private StringBuilder parseParagraph() {
-        StringBuilder result = new StringBuilder("");
+        StringBuilder result = new StringBuilder();
+
         int headerLevel = getHeaderLevel(paragraph.get(0));
         if (headerLevel > 0)
             paragraph.set(0, new StringBuilder(paragraph.get(0)).delete(0, headerLevel + 1).toString());
-
-        countTags();
+        countTagOccurrences();
 
         for (String line : paragraph) {
-            for (int lineIndex = 0; lineIndex < line.length(); ++lineIndex) {
+            for (int lineIndex = 0; lineIndex < line.length(); lineIndex++) {
                 char ch = line.charAt(lineIndex);
-                if (ch == '*' || ch == '_') {
-                    if (testNextChar(line, lineIndex) && tagWasInParagraph(ch)) {
-                        createDoubleTag(result, ch, 2);
-                        lineIndex++;
+                if (tags.containsKey(ch) && tagWasInParagraph(ch)) {
+                    if (testNextChar(line, lineIndex)) {
+                        if (MD_TO_HTML_TAGS.containsKey(ch + "" + ch)) {
+                            createTag(result, ch, 2);
+                            lineIndex++;
+                        } else {
+                            createTag(result, ch, 1);
+                        }
                     } else {
-                        if (tagWasInParagraph(ch)) {
-                            createSingleTag(result, lineIndex, ch);
-                        } else result.append(line.charAt(lineIndex));
-                    }
-                } else if (ch == '-' || ch == '+') {
-                    if (testNextChar(line, lineIndex) && tagWasInParagraph(ch)) {
-                        createDoubleTag(result, ch, 2);
-                        lineIndex++;
-                    } else result.append(line.charAt(lineIndex));
-                } else if (ch == '`') {
-                    if (tagWasInParagraph(ch)) {
-                        createSingleTag(result, lineIndex, ch);
+                        createTag(result, ch, 1);
                     }
                 } else if (ch == '\\') {
-                    //
+                    lineIndex++;
+                    if (lineIndex < line.length()) {
+                        result.append(line.charAt(lineIndex));
+                    }
                 } else if (SPECIAL_SYMBOLS.containsKey(ch)) {
                     result.append(SPECIAL_SYMBOLS.get(ch));
                 } else {
@@ -170,23 +169,7 @@ public class MarkdownParser {
             }
             result.append('\n');
         }
-        result.deleteCharAt(result.length() - 1);
-        result = wrapParagraph(headerLevel, result);
+        result = wrapParagraph(headerLevel, result.deleteCharAt(result.length() - 1));
         return result;
-    }
-
-    private void createSingleTag(StringBuilder result, int i, char ch) {
-        if (testTagOccurrences(ch))
-            appendTag(Character.toString(ch), "opening", result);
-        else
-            appendTag(Character.toString(ch), "closing", result);
-        decreaseTagOccurrences(ch);
-    }
-
-    private void createDoubleTag(StringBuilder result, char ch, int tagLength) {
-        String tag = ch + "" + ch;
-        System.out.println("flex happened");
-        appendTag(tag, testTagOccurrences(ch) ? "opening" : "closing", result);
-        decreaseTagOccurrences(ch);
     }
 }
