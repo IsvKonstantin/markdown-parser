@@ -43,7 +43,7 @@ public class MarkdownParser {
             if (!line.isEmpty()) {
                 paragraph.add(line);
             } else if (!paragraph.isEmpty()) {
-                result.append(parseParagraph()).append('\n');
+                result.append(parseParagraph());
                 paragraph.clear();
             }
         }
@@ -157,6 +157,6 @@ public class MarkdownParser {
             }
             result.append('\n');
         }
-        return wrapParagraph(headerLevel, result.deleteCharAt(result.length() - 1));
+        return wrapParagraph(headerLevel, result);
     }
 }
