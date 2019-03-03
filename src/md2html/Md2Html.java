@@ -14,7 +14,7 @@ public class Md2Html {
         } catch (FileNotFoundException e) {
             System.out.println("File \"" + args[0] +"\" was not found");
         }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(args[0], StandardCharsets.UTF_8))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(args[1], StandardCharsets.UTF_8))) {
             writer.write(result);
         } catch (IOException e) {
             System.out.println("Error occurred while writing to file \"" + args[1]);
