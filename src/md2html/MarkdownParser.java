@@ -43,7 +43,7 @@ public class MarkdownParser {
             if (!line.isEmpty()) {
                 paragraph.add(line);
             } else if (!paragraph.isEmpty()) {
-                result.append(parseParagraph());
+                result.append(parseParagraph()).append('\n');
                 paragraph.clear();
             }
         }
@@ -55,7 +55,7 @@ public class MarkdownParser {
         while (line.charAt(headerLevel) == '#') {
             headerLevel++;
         }
-        return headerLevel * Boolean.compare(Character.isWhitespace(line.charAt(headerLevel)), false);
+        return Character.isWhitespace(line.charAt(headerLevel)) ? headerLevel : 0;
     }
 
     private StringBuilder wrapParagraph(int level, StringBuilder body) {
@@ -157,6 +157,6 @@ public class MarkdownParser {
             }
             result.append('\n');
         }
-        return wrapParagraph(headerLevel, result);
+        return wrapParagraph(headerLevel, result.deleteCharAt(result.length() - 1));
     }
 }
